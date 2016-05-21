@@ -4,8 +4,7 @@ import functools
 
 CLOSED = 0
 OPEN = 1
-
-state_map = {CLOSED: "CLOSED", OPEN: "OPEN"}
+HALF_OPEN = 2
 
 
 class CircuitBreaker(object):
@@ -28,25 +27,48 @@ class CircuitBreaker(object):
         self.state = CLOSED
         self.half_open_time = 0  # initialize to minimum seconds since epoch
 
+    def open(self):
+        '''Open the circuit breaker and set time for half open'''
+        self.state = OPEN
+        open_time = time.time()
+        self.half_open_time = open_time + self.retry_time
+
+    def close(self):
+        '''Close circuit breaker and reset failure count'''
+        self.state = CLOSED
+        self.failure_count = 0
+
+    def half_open(self):
+        ''' Set circuit breaker to half open state'''
+        self.state = HALF_OPEN
+
+    def check_state(self):
+        '''Check current state of breaker and set half open when possible'''
+        if self.state == OPEN:
+            now = time.time()
+            if now >= self.half_open_time:
+                self.half_open()
+
+        return self.state
+
     def on_failure(self):
         '''
         Increments failure counter and switches state if allowed_fails is reached
         '''
 
         self.failure_count += 1
-        if self.failure_count == self.allowed_fails:
-            self.state = OPEN
-            open_time = time.time()
-            self.half_open_time = open_time + self.retry_time
+        if self.failure_count >= self.allowed_fails:
+            current_state = self.check_state()
+            if current_state != OPEN:
+                self.open()
 
     def on_success(self):
         '''
         Resets failure counter and moves breaker to closed state
         '''
-        self.failure_count = 0
-        self.state = CLOSED
+        self.close()
 
-    def parse_result(self, result):
+    def _parse_result(self, result):
         '''
         Determine if result of wrapped function is valid
 
@@ -58,26 +80,33 @@ class CircuitBreaker(object):
         else:
             self.on_failure()
 
-    def __call__(self, func):
+    def _call(self, func, *args, **kwargs):
         '''
         Wraps decorated function and watches for successes and failures
-        '''
-        @functools.wraps(func)
-        def wrapped_func(*args, **kwargs):
-            if self.state == OPEN:
-                now = time.time()
-                if now < self.half_open_time:
-                    return
-            try:
-                result = func(*args, **kwargs)
-            except Exception:
-                self.on_failure()
-                return
 
+        Args:
+            func(function): decorated function
+            *args: args passed to decorated function
+            **kwargs: kwargs passed to decorated function
+        '''
+        current_state = self.check_state()
+        print current_state
+        if current_state == OPEN:
+            return
+        try:
+            result = func(*args, **kwargs)
+        except Exception:
+            self.on_failure()
+        else:
             if self.validation_func is not None:
-                self.parse_result(result)
+                self._parse_result(result)
             else:
                 self.on_success()
+
+    def __call__(self, func):
+        @functools.wraps(func)
+        def wrapped_func(*args, **kwargs):
+            return self._call(func, *args, **kwargs)
 
         return wrapped_func
 
@@ -88,13 +117,14 @@ if __name__ == "__main__":
         return number > 14
 
     # test code for now
-    @CircuitBreaker(allowed_fails=3, retry_time=4, validation_func=validator)
+    @CircuitBreaker(allowed_fails=2, retry_time=4, validation_func=validator)
     def test_func(number):
-        if number % 4 == 0:
+        if number % 4 == 0 or i % 5 == 0 :
             return number * 2
         else:
-            raise ValueError("Not divisible by 4 lolwut")
+            raise ValueError("Not divisible by 3 lolwut")
 
-    for i in xrange(25):
+    for i in range(1, 35):
+        print "i = {}".format(i)
         time.sleep(1)
         test_func(i)
