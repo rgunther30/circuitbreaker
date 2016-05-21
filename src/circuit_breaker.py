@@ -109,22 +109,3 @@ class CircuitBreaker(object):
             return self._call(func, *args, **kwargs)
 
         return wrapped_func
-
-
-if __name__ == "__main__":
-
-    def validator(number):
-        return number > 14
-
-    # test code for now
-    @CircuitBreaker(allowed_fails=2, retry_time=4, validation_func=validator)
-    def test_func(number):
-        if number % 4 == 0 or i % 5 == 0 :
-            return number * 2
-        else:
-            raise ValueError("Not divisible by 3 lolwut")
-
-    for i in range(1, 35):
-        print "i = {}".format(i)
-        time.sleep(1)
-        test_func(i)
