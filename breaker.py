@@ -5,9 +5,11 @@ import functools
 CLOSED = 0
 OPEN = 1
 
+state_map = {CLOSED: "CLOSED", OPEN: "OPEN"}
+
 
 class CircuitBreaker(object):
-    def __init__(self, allowed_fails=3, retry_time=30):
+    def __init__(self, allowed_fails=3, retry_time=30, validation_func=None):
         '''
         Initializes Breaker object
 
@@ -16,9 +18,12 @@ class CircuitBreaker(object):
                                 opening circuit
             retry_time(int): Number of seconds during close period before allowing
                              test request to check if other end of circuit is responsive
+            validation_func(func): function to check if return value of wrapped function
+                                   is permissible. Must return boolean value
         '''
         self.allowed_fails = allowed_fails
         self.retry_time = retry_time
+        self.validation_func = validation_func
         self.failure_count = 0
         self.state = CLOSED
         self.half_open_time = 0  # initialize to minimum seconds since epoch
@@ -29,9 +34,7 @@ class CircuitBreaker(object):
         '''
 
         self.failure_count += 1
-        print "fail count %s" % self.failure_count
         if self.failure_count == self.allowed_fails:
-            print "OPEN"
             self.state = OPEN
             open_time = time.time()
             self.half_open_time = open_time + self.retry_time
@@ -42,8 +45,18 @@ class CircuitBreaker(object):
         '''
         self.failure_count = 0
         self.state = CLOSED
-        print "CLOSED"
-        print "fail count %s" % self.failure_count
+
+    def parse_result(self, result):
+        '''
+        Determine if result of wrapped function is valid
+
+        Args:
+            result(object): return value of wrapped function
+        '''
+        if self.validation_func(result):
+            self.on_success()
+        else:
+            self.on_failure()
 
     def __call__(self, func):
         '''
@@ -54,25 +67,31 @@ class CircuitBreaker(object):
             if self.state == OPEN:
                 now = time.time()
                 if now < self.half_open_time:
-                    print "gotta wait"
                     return
             try:
-                func(*args, **kwargs)
+                result = func(*args, **kwargs)
             except Exception:
                 self.on_failure()
                 return
 
-            self.on_success()
+            if self.validation_func is not None:
+                self.parse_result(result)
+            else:
+                self.on_success()
 
         return wrapped_func
 
 
 if __name__ == "__main__":
+
+    def validator(number):
+        return number > 14
+
     # test code for now
-    @CircuitBreaker(allowed_fails=3, retry_time=4)
+    @CircuitBreaker(allowed_fails=3, retry_time=4, validation_func=validator)
     def test_func(number):
         if number % 4 == 0:
-            return True
+            return number * 2
         else:
             raise ValueError("Not divisible by 4 lolwut")
 
