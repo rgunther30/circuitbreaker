@@ -1,5 +1,6 @@
 import time
 import functools
+import threading
 
 
 CLOSED = 0
@@ -23,20 +24,23 @@ class CircuitBreaker(object):
         self.allowed_fails = allowed_fails
         self.retry_time = retry_time
         self.validation_func = validation_func
+        self._lock = threading.RLock()
         self.failure_count = 0
         self.state = CLOSED
         self.half_open_time = 0  # initialize to minimum seconds since epoch
 
     def open(self):
         '''Open the circuit breaker and set time for half open'''
-        self.state = OPEN
-        open_time = time.time()
-        self.half_open_time = open_time + self.retry_time
+        with self._lock:
+            self.state = OPEN
+            open_time = time.time()
+            self.half_open_time = open_time + self.retry_time
 
     def close(self):
         '''Close circuit breaker and reset failure count'''
-        self.state = CLOSED
-        self.failure_count = 0
+        with self._lock:
+            self.state = CLOSED
+            self.failure_count = 0
 
     def half_open(self):
         ''' Set circuit breaker to half open state'''
@@ -44,23 +48,24 @@ class CircuitBreaker(object):
 
     def check_state(self):
         '''Check current state of breaker and set half open when possible'''
-        if self.state == OPEN:
-            now = time.time()
-            if now >= self.half_open_time:
-                self.half_open()
+        with self._lock:
+            if self.state == OPEN:
+                now = time.time()
+                if now >= self.half_open_time:
+                    self.half_open()
 
-        return self.state
+            return self.state
 
     def on_failure(self):
         '''
         Increments failure counter and switches state if allowed_fails is reached
         '''
-
-        self.failure_count += 1
-        if self.failure_count >= self.allowed_fails:
-            current_state = self.check_state()
-            if current_state != OPEN:
-                self.open()
+        with self._lock:
+            self.failure_count += 1
+            if self.failure_count >= self.allowed_fails:
+                current_state = self.check_state()
+                if current_state != OPEN:
+                    self.open()
 
     def on_success(self):
         '''
@@ -89,19 +94,19 @@ class CircuitBreaker(object):
             *args: args passed to decorated function
             **kwargs: kwargs passed to decorated function
         '''
-        current_state = self.check_state()
-        print current_state
-        if current_state == OPEN:
-            return
-        try:
-            result = func(*args, **kwargs)
-        except Exception:
-            self.on_failure()
-        else:
-            if self.validation_func is not None:
-                self._parse_result(result)
+        with self._lock:
+            current_state = self.check_state()
+            if current_state == OPEN:
+                return
+            try:
+                result = func(*args, **kwargs)
+            except Exception:
+                self.on_failure()
             else:
-                self.on_success()
+                if self.validation_func is not None:
+                    self._parse_result(result)
+                else:
+                    self.on_success()
 
     def __call__(self, func):
         @functools.wraps(func)
