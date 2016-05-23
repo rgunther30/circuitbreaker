@@ -1,4 +1,6 @@
 # circuitbreaker
+[![Build Status](https://travis-ci.org/rgunther30/circuitbreaker.svg?branch=master)](https://travis-ci.org/rgunther30/circuitbreaker)
+
 Python implementation of circuit breaker to protect systems from failures
 
 Inspired by a presentation at Boston Python User Group given by Dan Riti.
