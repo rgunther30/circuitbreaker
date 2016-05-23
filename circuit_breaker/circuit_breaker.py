@@ -24,23 +24,21 @@ class CircuitBreaker(object):
         self._allowed_fails = allowed_fails
         self.retry_time = retry_time
         self._validation_func = validation_func
-        self._lock = threading.RLock()
+        self._lock = threading.Lock()
         self._failure_count = 0
         self._state = CLOSED
         self._half_open_time = 0  # initialize to minimum seconds since epoch
 
     def _open(self):
         '''Open the circuit breaker and set time for half open'''
-        with self._lock:
-            self._state = OPEN
-            open_time = time.time()
-            self._half_open_time = open_time + self.retry_time
+        self._state = OPEN
+        open_time = time.time()
+        self._half_open_time = open_time + self.retry_time
 
     def _close(self):
         '''Close circuit breaker and reset failure count'''
-        with self._lock:
-            self._state = CLOSED
-            self._failure_count = 0
+        self._state = CLOSED
+        self._failure_count = 0
 
     def _half_open(self):
         ''' Set circuit breaker to half open state'''
@@ -48,24 +46,22 @@ class CircuitBreaker(object):
 
     def _check_state(self):
         '''Check current state of breaker and set half open when possible'''
-        with self._lock:
-            if self._state == OPEN:
-                now = time.time()
-                if now >= self._half_open_time:
-                    self._half_open()
+        if self._state == OPEN:
+            now = time.time()
+            if now >= self._half_open_time:
+                self._half_open()
 
-            return self._state
+        return self._state
 
     def _on_failure(self):
         '''
         Increments failure counter and switches state if allowed_fails is reached
         '''
-        with self._lock:
-            self._failure_count += 1
-            if self._failure_count >= self._allowed_fails:
-                current_state = self._check_state()
-                if current_state != OPEN:
-                    self._open()
+        self._failure_count += 1
+        if self._failure_count >= self._allowed_fails:
+            current_state = self._check_state()
+            if current_state != OPEN:
+                self._open()
 
     def _on_success(self):
         '''
