@@ -6,4 +6,4 @@ python:
   - "3.3"
   - "3.4"
   - "3.5"
-script: python src/tests.py
+script: python circuit_breaker/tests.py
