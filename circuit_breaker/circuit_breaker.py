@@ -21,57 +21,57 @@ class CircuitBreaker(object):
             validation_func(func): function to check if return value of wrapped function
                                    is permissible. Must return boolean value
         '''
-        self.allowed_fails = allowed_fails
+        self._allowed_fails = allowed_fails
         self.retry_time = retry_time
-        self.validation_func = validation_func
+        self._validation_func = validation_func
         self._lock = threading.RLock()
-        self.failure_count = 0
-        self.state = CLOSED
-        self.half_open_time = 0  # initialize to minimum seconds since epoch
+        self._failure_count = 0
+        self._state = CLOSED
+        self._half_open_time = 0  # initialize to minimum seconds since epoch
 
-    def open(self):
+    def _open(self):
         '''Open the circuit breaker and set time for half open'''
         with self._lock:
-            self.state = OPEN
+            self._state = OPEN
             open_time = time.time()
-            self.half_open_time = open_time + self.retry_time
+            self._half_open_time = open_time + self.retry_time
 
-    def close(self):
+    def _close(self):
         '''Close circuit breaker and reset failure count'''
         with self._lock:
-            self.state = CLOSED
-            self.failure_count = 0
+            self._state = CLOSED
+            self._failure_count = 0
 
-    def half_open(self):
+    def _half_open(self):
         ''' Set circuit breaker to half open state'''
-        self.state = HALF_OPEN
+        self._state = HALF_OPEN
 
-    def check_state(self):
+    def _check_state(self):
         '''Check current state of breaker and set half open when possible'''
         with self._lock:
-            if self.state == OPEN:
+            if self._state == OPEN:
                 now = time.time()
-                if now >= self.half_open_time:
-                    self.half_open()
+                if now >= self._half_open_time:
+                    self._half_open()
 
-            return self.state
+            return self._state
 
-    def on_failure(self):
+    def _on_failure(self):
         '''
         Increments failure counter and switches state if allowed_fails is reached
         '''
         with self._lock:
-            self.failure_count += 1
-            if self.failure_count >= self.allowed_fails:
-                current_state = self.check_state()
+            self._failure_count += 1
+            if self._failure_count >= self._allowed_fails:
+                current_state = self._check_state()
                 if current_state != OPEN:
-                    self.open()
+                    self._open()
 
-    def on_success(self):
+    def _on_success(self):
         '''
         Resets failure counter and moves breaker to closed state
         '''
-        self.close()
+        self._close()
 
     def _parse_result(self, result):
         '''
@@ -80,10 +80,10 @@ class CircuitBreaker(object):
         Args:
             result(object): return value of wrapped function
         '''
-        if self.validation_func(result):
-            self.on_success()
+        if self._validation_func(result):
+            self._on_success()
         else:
-            self.on_failure()
+            self._on_failure()
 
     def _call(self, func, *args, **kwargs):
         '''
@@ -95,18 +95,18 @@ class CircuitBreaker(object):
             **kwargs: kwargs passed to decorated function
         '''
         with self._lock:
-            current_state = self.check_state()
+            current_state = self._check_state()
             if current_state == OPEN:
                 return
             try:
                 result = func(*args, **kwargs)
             except Exception:
-                self.on_failure()
+                self._on_failure()
             else:
-                if self.validation_func is not None:
+                if self._validation_func is not None:
                     self._parse_result(result)
                 else:
-                    self.on_success()
+                    self._on_success()
 
     def __call__(self, func):
         @functools.wraps(func)

@@ -23,30 +23,30 @@ class TestBreaker(unittest.TestCase):
     def test_open_transition(self):
         breaker = self.breaker
         for i in range(DEFAULT_FAILS):
-            breaker.on_failure()
-        self.assertEqual(breaker.state, circuit_breaker.OPEN)
-        self.assertEqual(breaker.failure_count, DEFAULT_FAILS)
+            breaker._on_failure()
+        self.assertEqual(breaker._state, circuit_breaker.OPEN)
+        self.assertEqual(breaker._failure_count, DEFAULT_FAILS)
 
     def test_success(self):
         breaker = self.breaker
         for i in range(DEFAULT_FAILS - 1):
-            breaker.on_failure()
-        self.assertEqual(breaker.state, circuit_breaker.CLOSED)
-        self.assertEqual(breaker.failure_count, DEFAULT_FAILS - 1)
+            breaker._on_failure()
+        self.assertEqual(breaker._state, circuit_breaker.CLOSED)
+        self.assertEqual(breaker._failure_count, DEFAULT_FAILS - 1)
 
-        breaker.on_success()
-        self.assertEqual(breaker.state, circuit_breaker.CLOSED)
-        self.assertEqual(breaker.failure_count, 0)
+        breaker._on_success()
+        self.assertEqual(breaker._state, circuit_breaker.CLOSED)
+        self.assertEqual(breaker._failure_count, 0)
 
     def test_half_open(self):
         breaker = self.breaker
         for i in range(DEFAULT_FAILS):
-            breaker.on_failure()
-        self.assertEqual(breaker.state, circuit_breaker.OPEN)
+            breaker._on_failure()
+        self.assertEqual(breaker._state, circuit_breaker.OPEN)
 
         time.sleep(DEFAULT_RETRY)
-        breaker.check_state()
-        self.assertEqual(breaker.state, circuit_breaker.HALF_OPEN)
+        breaker._check_state()
+        self.assertEqual(breaker._state, circuit_breaker.HALF_OPEN)
 
 
 if __name__ == '__main__':
