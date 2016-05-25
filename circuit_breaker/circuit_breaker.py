@@ -38,14 +38,14 @@ class CircuitBreaker(object):
         self._state = CLOSED
         self._half_open_time = 0  # initialize to minimum seconds since epoch
         if allowed_exceptions is not None:
-            self._allowed_exceptions = allowed_exceptions
+            self._allowed_exceptions = tuple(allowed_exceptions)
         else:
-            self._allowed_exceptions = []
+            self._allowed_exceptions = ()
 
         if failure_exceptions is not None:
-            self._failure_exceptions = failure_exceptions
+            self._failure_exceptions = tuple(failure_exceptions)
         else:
-            self._failure_exceptions = []
+            self._failure_exceptions = ()
 
         if self._failure_exceptions and self._allowed_exceptions:
             raise ValueError("Cannot set failure exceptions in tandem with allowed_exceptions")
@@ -97,30 +97,14 @@ class CircuitBreaker(object):
         Args:
             result(object): return value of wrapped function
         '''
+        if self._validation_func is None:
+            self._on_success()
+            return
+
         if self._validation_func(result):
             self._on_success()
         else:
             self._on_failure()
-
-    def _parse_exception(self, exc):
-        '''
-        Handle exceptions using rules given by user at init
-
-        Check against allowed_exceptions or failure_exceptions to deterimine if
-        result was legal or not
-
-        Args:
-            exc(Exception): exception caught during execution of wrapped function
-        '''
-        e = exc.__class__
-        if self._allowed_exceptions and not issubclass(e, tuple(self._allowed_exceptions)):
-                self._on_failure()
-                return
-        if self._failure_exceptions and issubclass(e, tuple(self._failure_exceptions)):
-                self._on_failure()
-                return
-
-        self._on_success()
 
     def _call(self, func, *args, **kwargs):
         '''
@@ -135,18 +119,20 @@ class CircuitBreaker(object):
             current_state = self._check_state()
             if current_state == OPEN:
                 return
+
             try:
                 result = func(*args, **kwargs)
-            except Exception as e:
-                if self.allowed_exceptions or self.failure_exceptions:
-                    self._parse_exceptions(e)
+            except self._allowed_exceptions:
+                return  # not a failure, but not a success
+            except self._failure_exceptions:
+                self._on_failure()
+            except Exception:
+                if self._failure_exceptions:
+                    return  # not a failure, but not a success
                 else:
                     self._on_failure()
             else:
-                if self._validation_func is not None:
-                    self._parse_result(result)
-                else:
-                    self._on_success()
+                self._parse_result(result)
 
     def __call__(self, func):
         @functools.wraps(func)

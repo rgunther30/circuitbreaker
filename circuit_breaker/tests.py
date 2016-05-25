@@ -11,6 +11,10 @@ def validation_stub(number):
     return number > 0
 
 
+def raises_something(exc):
+    raise exc
+
+
 class TestBreaker(unittest.TestCase):
     def setUp(self):
         self.breaker = circuit_breaker.CircuitBreaker(
@@ -68,26 +72,36 @@ class TestBreaker(unittest.TestCase):
         breaker._parse_result(fake_result)
         self.assertEqual(breaker._failure_count, 0)
 
+    def test_no_validation_func(self):
+        breaker = self.breaker
+        fake_result = 0
+        breaker._parse_result(fake_result)
+        self.assertEqual(breaker._failure_count, 0)
+        fake_result = 1
+        breaker._parse_result(fake_result)
+        self.assertEqual(breaker._failure_count, 0)
+
     def test_parse_allowed_exc(self):
         breaker = self.breaker_with_allowed
-        breaker._parse_exception(KeyError())
+        breaker._call(raises_something, KeyError())
         self.assertEqual(breaker._failure_count, 1)
-        breaker._parse_exception(AttributeError())
-        # reset on success
-        self.assertEqual(breaker._failure_count, 0)
+        breaker._call(raises_something, AttributeError())
+        # not a success, but not a failure either
+        self.assertEqual(breaker._failure_count, 1)
 
     def test_parse_failure_exc(self):
         breaker = self.breaker_with_fail_exc
-        breaker._parse_exception(KeyError())
+        breaker._call(raises_something, KeyError())
         self.assertEqual(breaker._failure_count, 1)
-        breaker._parse_exception(AttributeError())
-        self.assertEqual(breaker._failure_count, 0)
+        breaker._call(raises_something, AttributeError())
+        # not a success, but not a failure either
+        self.assertEqual(breaker._failure_count, 1)
 
     def test_handles_child_exc(self):
         class TestException(AttributeError):
             pass
         breaker = self.breaker_with_allowed
-        breaker._parse_exception(TestException())
+        breaker._call(raises_something, TestException())
         self.assertEqual(breaker._failure_count, 0)
 
     def test_init_failure(self):
@@ -98,7 +112,8 @@ class TestBreaker(unittest.TestCase):
             "allowed_exceptions": [ValueError, AttributeError],
             "failure_exceptions": [KeyError]
         }
-        self.assertRaises(ValueError, circuit_breaker.CircuitBreaker, *args, **kwargs)
+        with self.assertRaises(ValueError):
+            circuit_breaker.CircuitBreaker(*args, **kwargs)
 
 
 if __name__ == '__main__':
