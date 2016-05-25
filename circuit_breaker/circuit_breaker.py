@@ -9,7 +9,8 @@ HALF_OPEN = 2
 
 
 class CircuitBreaker(object):
-    def __init__(self, allowed_fails=3, retry_time=30, validation_func=None):
+    def __init__(self, allowed_fails=3, retry_time=30, validation_func=None,
+                 allowed_exceptions=None, failure_exceptions=None):
         '''
         Initializes Breaker object
 
@@ -20,6 +21,12 @@ class CircuitBreaker(object):
                              test request to check if other end of circuit is responsive
             validation_func(func): function to check if return value of wrapped function
                                    is permissible. Must return boolean value
+            allowed_exceptions(list[Exception]): permissible exceptions that will not trigger a
+                                                 failure. Do not use in conjunction with
+                                                 failure_exceptions
+            failure_exceptions(list[Exception]): if provided, only these exceptions will be
+                                                 registered as failures. Do not use in
+                                                 conjunction with allowed_exceptions
         '''
         self._allowed_fails = allowed_fails
         self.retry_time = retry_time
@@ -28,6 +35,18 @@ class CircuitBreaker(object):
         self._failure_count = 0
         self._state = CLOSED
         self._half_open_time = 0  # initialize to minimum seconds since epoch
+        if allowed_exceptions is not None:
+            self.allowed_exceptions = allowed_exceptions
+        else:
+            self.allowed_exceptions = []
+
+        if failure_exceptions is not None:
+            self.failure_exceptions = failure_exceptions
+        else:
+            self.failure_exceptions = []
+
+        if self.failure_exceptions and self.allowed_exceptions:
+            raise ValueError("Cannot set failure exceptions in tandem with allowed_exceptions")
 
     def _open(self):
         '''Open the circuit breaker and set time for half open'''
@@ -81,6 +100,23 @@ class CircuitBreaker(object):
         else:
             self._on_failure()
 
+    def _parse_exception(self, exc):
+        '''
+        Handle exceptions using rules given by user at init
+
+        Check against allowed_exceptions or failure_exceptions to deterimine if
+        result was legal or not
+
+        Args:
+            exc(Exception): exception caught during execution of wrapped function
+        '''
+        if self.allowed_exceptions and exc not in self.allowed_exceptions:
+            self._on_failure()
+        elif self.failure_exceptions and exc in self.failure_exceptions:
+            self._on_failure()
+        else:
+            self._on_success()
+
     def _call(self, func, *args, **kwargs):
         '''
         Wraps decorated function and watches for successes and failures
@@ -96,8 +132,11 @@ class CircuitBreaker(object):
                 return
             try:
                 result = func(*args, **kwargs)
-            except Exception:
-                self._on_failure()
+            except Exception as e:
+                if self.allowed_exceptions or self.failure_exceptions:
+                    self._parse_exceptions(e)
+                else:
+                    self._on_failure()
             else:
                 if self._validation_func is not None:
                     self._parse_result(result)
