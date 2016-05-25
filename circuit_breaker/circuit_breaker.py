@@ -112,10 +112,11 @@ class CircuitBreaker(object):
         Args:
             exc(Exception): exception caught during execution of wrapped function
         '''
-        if self._allowed_exceptions and not issubclass(exc, tuple(self._allowed_exceptions)):
+        e = exc.__class__
+        if self._allowed_exceptions and not issubclass(e, tuple(self._allowed_exceptions)):
                 self._on_failure()
                 return
-        if self._failure_exceptions and issubclass(exc, tuple(self._failure_exceptions)):
+        if self._failure_exceptions and issubclass(e, tuple(self._failure_exceptions)):
                 self._on_failure()
                 return
 

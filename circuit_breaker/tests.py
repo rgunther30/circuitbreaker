@@ -70,24 +70,24 @@ class TestBreaker(unittest.TestCase):
 
     def test_parse_allowed_exc(self):
         breaker = self.breaker_with_allowed
-        breaker._parse_exception(KeyError)
+        breaker._parse_exception(KeyError())
         self.assertEqual(breaker._failure_count, 1)
-        breaker._parse_exception(AttributeError)
+        breaker._parse_exception(AttributeError())
         # reset on success
         self.assertEqual(breaker._failure_count, 0)
 
     def test_parse_failure_exc(self):
         breaker = self.breaker_with_fail_exc
-        breaker._parse_exception(KeyError)
+        breaker._parse_exception(KeyError())
         self.assertEqual(breaker._failure_count, 1)
-        breaker._parse_exception(AttributeError)
+        breaker._parse_exception(AttributeError())
         self.assertEqual(breaker._failure_count, 0)
 
     def test_handles_child_exc(self):
         class TestException(AttributeError):
             pass
         breaker = self.breaker_with_allowed
-        breaker._parse_exception(TestException)
+        breaker._parse_exception(TestException())
         self.assertEqual(breaker._failure_count, 0)
 
     def test_init_failure(self):
