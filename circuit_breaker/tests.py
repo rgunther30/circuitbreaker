@@ -23,6 +23,12 @@ class TestBreaker(unittest.TestCase):
             retry_time=DEFAULT_RETRY,
             validation_func=validation_stub
         )
+        self.breaker_with_allowed = circuit_breaker.CircuitBreaker(
+            allowed_exceptions=[AttributeError]
+        )
+        self.breaker_with_fail_exc = circuit_breaker.CircuitBreaker(
+            failure_exceptions=[KeyError]
+        )
 
     def test_open_transition(self):
         breaker = self.breaker
@@ -63,19 +69,26 @@ class TestBreaker(unittest.TestCase):
         self.assertEqual(breaker._failure_count, 0)
 
     def test_parse_allowed_exc(self):
-        breaker_with_allowed = circuit_breaker.CircuitBreaker(allowed_exceptions=[AttributeError])
-        breaker_with_allowed._parse_exception(KeyError)
-        self.assertEqual(breaker_with_allowed._failure_count, 1)
-        breaker_with_allowed._parse_exception(AttributeError)
+        breaker = self.breaker_with_allowed
+        breaker._parse_exception(KeyError)
+        self.assertEqual(breaker._failure_count, 1)
+        breaker._parse_exception(AttributeError)
         # reset on success
-        self.assertEqual(breaker_with_allowed._failure_count, 0)
+        self.assertEqual(breaker._failure_count, 0)
 
     def test_parse_failure_exc(self):
-        breaker_with_fail_exc = circuit_breaker.CircuitBreaker(failure_exceptions=[KeyError])
-        breaker_with_fail_exc._parse_exception(KeyError)
-        self.assertEqual(breaker_with_fail_exc._failure_count, 1)
-        breaker_with_fail_exc._parse_exception(AttributeError)
-        self.assertEqual(breaker_with_fail_exc._failure_count, 0)
+        breaker = self.breaker_with_fail_exc
+        breaker._parse_exception(KeyError)
+        self.assertEqual(breaker._failure_count, 1)
+        breaker._parse_exception(AttributeError)
+        self.assertEqual(breaker._failure_count, 0)
+
+    def test_handles_child_exc(self):
+        class TestException(AttributeError):
+            pass
+        breaker = self.breaker_with_allowed
+        breaker._parse_exception(TestException)
+        self.assertEqual(breaker._failure_count, 0)
 
     def test_init_failure(self):
         args = []

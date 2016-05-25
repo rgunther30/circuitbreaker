@@ -23,10 +23,12 @@ class CircuitBreaker(object):
                                    is permissible. Must return boolean value
             allowed_exceptions(list[Exception]): permissible exceptions that will not trigger a
                                                  failure. Do not use in conjunction with
-                                                 failure_exceptions
+                                                 failure_exceptions. Will also check for child
+                                                 exceptions of the ones provided here
             failure_exceptions(list[Exception]): if provided, only these exceptions will be
                                                  registered as failures. Do not use in
-                                                 conjunction with allowed_exceptions
+                                                 conjunction with allowed_exceptions. Will also
+                                                 check for child exceptions of the ones provided
         '''
         self._allowed_fails = allowed_fails
         self.retry_time = retry_time
@@ -36,16 +38,16 @@ class CircuitBreaker(object):
         self._state = CLOSED
         self._half_open_time = 0  # initialize to minimum seconds since epoch
         if allowed_exceptions is not None:
-            self.allowed_exceptions = allowed_exceptions
+            self._allowed_exceptions = allowed_exceptions
         else:
-            self.allowed_exceptions = []
+            self._allowed_exceptions = []
 
         if failure_exceptions is not None:
-            self.failure_exceptions = failure_exceptions
+            self._failure_exceptions = failure_exceptions
         else:
-            self.failure_exceptions = []
+            self._failure_exceptions = []
 
-        if self.failure_exceptions and self.allowed_exceptions:
+        if self._failure_exceptions and self._allowed_exceptions:
             raise ValueError("Cannot set failure exceptions in tandem with allowed_exceptions")
 
     def _open(self):
@@ -110,12 +112,14 @@ class CircuitBreaker(object):
         Args:
             exc(Exception): exception caught during execution of wrapped function
         '''
-        if self.allowed_exceptions and exc not in self.allowed_exceptions:
-            self._on_failure()
-        elif self.failure_exceptions and exc in self.failure_exceptions:
-            self._on_failure()
-        else:
-            self._on_success()
+        if self._allowed_exceptions and not issubclass(exc, tuple(self._allowed_exceptions)):
+                self._on_failure()
+                return
+        if self._failure_exceptions and issubclass(exc, tuple(self._failure_exceptions)):
+                self._on_failure()
+                return
+
+        self._on_success()
 
     def _call(self, func, *args, **kwargs):
         '''
