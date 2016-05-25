@@ -112,8 +112,7 @@ class TestBreaker(unittest.TestCase):
             "allowed_exceptions": [ValueError, AttributeError],
             "failure_exceptions": [KeyError]
         }
-        with self.assertRaises(ValueError):
-            circuit_breaker.CircuitBreaker(*args, **kwargs)
+        self.assertRaises(ValueError,circuit_breaker.CircuitBreaker, *args, **kwargs)
 
 
 if __name__ == '__main__':
