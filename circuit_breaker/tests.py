@@ -17,20 +17,20 @@ def raises_something(exc):
 
 class TestBreaker(unittest.TestCase):
     def setUp(self):
-        self.breaker = circuit_breaker.CircuitBreaker(
+        self.breaker = circuit_breaker.circuit_breaker(
             allowed_fails=DEFAULT_FAILS,
             retry_time=DEFAULT_RETRY,
             validation_func=None
         )
-        self.breaker_with_validation = circuit_breaker.CircuitBreaker(
+        self.breaker_with_validation = circuit_breaker.circuit_breaker(
             allowed_fails=DEFAULT_FAILS,
             retry_time=DEFAULT_RETRY,
             validation_func=validation_stub
         )
-        self.breaker_with_allowed = circuit_breaker.CircuitBreaker(
+        self.breaker_with_allowed = circuit_breaker.circuit_breaker(
             allowed_exceptions=[AttributeError]
         )
-        self.breaker_with_fail_exc = circuit_breaker.CircuitBreaker(
+        self.breaker_with_fail_exc = circuit_breaker.circuit_breaker(
             failure_exceptions=[KeyError]
         )
 
@@ -112,7 +112,7 @@ class TestBreaker(unittest.TestCase):
             "allowed_exceptions": [ValueError, AttributeError],
             "failure_exceptions": [KeyError]
         }
-        self.assertRaises(ValueError,circuit_breaker.CircuitBreaker, *args, **kwargs)
+        self.assertRaises(ValueError,circuit_breaker.circuit_breaker, *args, **kwargs)
 
 
 if __name__ == '__main__':

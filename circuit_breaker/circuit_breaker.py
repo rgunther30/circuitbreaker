@@ -1,3 +1,26 @@
+'''
+Module for fault tolerance handling using Finite State Machines (FSM)
+
+Circuit breakers prevent additional load from being cast on an ailing systems
+and provide graceful degradation of services to consumers of the ailing system.
+They function by switching between 3 states:
+    Closed:    Healthy normal state
+    Open:      Unhealthy state, do not allow any traffic through
+    Half Open: Send one test request through, and open or close based
+               on the result of the test
+
+Example Use:
+    @circuit_breaker(allowed_fails=2, retry_time=10)
+    def request_to_service():
+        # send http request to other system...
+
+    If exceptions are encountered by request_to_service, they will increment
+    the internal failure counter of circuit_breaker until it hits the
+    allowed_fails specified by the user. At this point the breaker will
+    spring open and not let anymore requests occur until the breaker is
+    set to the half open state when retry_time has passed in seconds
+
+'''
 import time
 import functools
 import threading
@@ -8,7 +31,8 @@ OPEN = 1
 HALF_OPEN = 2
 
 
-class CircuitBreaker(object):
+class circuit_breaker(object):
+    '''FSM to allow fault tolerance when systems fail'''
     def __init__(self, allowed_fails=3, retry_time=30, validation_func=None,
                  allowed_exceptions=None, failure_exceptions=None):
         '''
@@ -22,13 +46,12 @@ class CircuitBreaker(object):
             validation_func(func): function to check if return value of wrapped function
                                    is permissible. Must return boolean value
             allowed_exceptions(list[Exception]): permissible exceptions that will not trigger a
-                                                 failure. Do not use in conjunction with
-                                                 failure_exceptions. Will also check for child
-                                                 exceptions of the ones provided here
+                failure. Do not use in conjunction with failure_exceptions. Will also check for
+                child exceptions of the ones provided here. If these exceptions are caught, they
+                will not be counted as a success either, and will not change the state of the FSM
             failure_exceptions(list[Exception]): if provided, only these exceptions will be
-                                                 registered as failures. Do not use in
-                                                 conjunction with allowed_exceptions. Will also
-                                                 check for child exceptions of the ones provided
+                registered as failures. Do not use in conjunction with allowed_exceptions. Will also
+                check for child exceptions of the ones provided
         '''
         self._allowed_fails = allowed_fails
         self.retry_time = retry_time
