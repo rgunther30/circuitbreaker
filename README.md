@@ -15,7 +15,7 @@ back to the closed (healthy) state.
 
 To use this, simply use this as a decorator on a function you would normally use to make requests with:
 ```python
-@CircuitBreaker(allowed_fails=3, retry_timer=30)
+@circuit_breaker(allowed_fails=3, retry_timer=30)
 def request_something():
     # do something...
 ```
@@ -27,7 +27,7 @@ terrible practice, but for the sake of demonstration:
 def validator(response):
     return response.status_code >= 300
     
-@CircuitBreaker(allowed_fails=3, retry_timer=30, validation_func=validator)
+@circuit_breaker(allowed_fails=3, retry_timer=30, validation_func=validator)
 def request_something()
     # do something ...
     return response
