@@ -1,7 +1,12 @@
 import unittest
 import time
+import logging
 
 import circuit_breaker
+
+
+logging.disable(logging.CRITICAL)
+
 
 DEFAULT_FAILS = 3
 DEFAULT_RETRY = 1
