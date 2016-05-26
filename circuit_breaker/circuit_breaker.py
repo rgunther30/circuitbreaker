@@ -24,7 +24,9 @@ Example Use:
 import time
 import functools
 import threading
+import logging
 
+logger = logging.getLogger(__name__)
 
 CLOSED = 0
 OPEN = 1
@@ -78,15 +80,18 @@ class circuit_breaker(object):
         self._state = OPEN
         open_time = time.time()
         self._half_open_time = open_time + self.retry_time
+        logger.warning("Circuit breaker opened")
 
     def _close(self):
         '''Close circuit breaker and reset failure count'''
         self._state = CLOSED
         self._failure_count = 0
+        logger.info("Circuit breaker closing, reset failure count")
 
     def _half_open(self):
         ''' Set circuit breaker to half open state'''
         self._state = HALF_OPEN
+        logger.info("Circuit breaker half open")
 
     def _check_state(self):
         '''Check current state of breaker and set half open when possible'''
@@ -102,6 +107,7 @@ class circuit_breaker(object):
         Increments failure counter and switches state if allowed_fails is reached
         '''
         self._failure_count += 1
+        logger.debug("Failure encountered, failure count: {}".format(self._failure_count))
         if self._failure_count >= self._allowed_fails:
             current_state = self._check_state()
             if current_state != OPEN:
@@ -109,7 +115,7 @@ class circuit_breaker(object):
 
     def _on_success(self):
         '''
-        Resets failure counter and moves breaker to closed state
+        Moves breaker to closed state
         '''
         self._close()
 
@@ -145,14 +151,18 @@ class circuit_breaker(object):
 
             try:
                 result = func(*args, **kwargs)
-            except self._allowed_exceptions:
+            except self._allowed_exceptions as e:
+                logger.info("Encountered allowed exception {}".format(e.__class__))
                 return  # not a failure, but not a success
             except self._failure_exceptions:
+                logger.exception("Caught pre-defined failure exception")
                 self._on_failure()
             except Exception:
+                logger.exception("Caught unhandled exception, incrementing failure count")
                 if self._failure_exceptions:
                     return  # not a failure, but not a success
                 else:
+                    logger.debug("Successfully completed wrapped function")
                     self._on_failure()
             else:
                 self._parse_result(result)
