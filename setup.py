@@ -28,6 +28,8 @@ setuptools.setup(
     author="Russell Gunther",
     url="https://github.com/rgunther30/circuitbreaker",
     version=get_version(),
-    packages=setuptools.find_packages(),
-    include_package_data=True
+    package_dir={'': 'circuit_breaker'},
+    py_modules=['circuit_breaker'],
+    include_package_data=True,
+    test_suite="tests"
 )
