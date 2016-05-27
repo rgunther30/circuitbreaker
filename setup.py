@@ -9,7 +9,7 @@ import setuptools
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-VERSION_FILE = os.path.join(BASE_DIR, "circuit_breaker", 'version.py')
+VERSION_FILE = os.path.join(BASE_DIR, "circuitbreaker", 'version.py')
 README_FILE = os.path.join(BASE_DIR, "README.md")
 
 
@@ -28,8 +28,8 @@ setuptools.setup(
     author="Russell Gunther",
     url="https://github.com/rgunther30/circuitbreaker",
     version=get_version(),
-    package_dir={'': 'circuit_breaker'},
-    py_modules=['circuit_breaker'],
+    package_dir={'': 'circuitbreaker'},
+    py_modules=['circuitbreaker'],
     include_package_data=True,
     test_suite="tests"
 )
