@@ -56,7 +56,7 @@ class circuit_breaker(object):
                 check for child exceptions of the ones provided
         '''
         self._allowed_fails = allowed_fails
-        self.retry_time = retry_time
+        self._retry_time = retry_time
         self._validation_func = validation_func
         self._lock = threading.Lock()
         self._failure_count = 0
@@ -79,7 +79,7 @@ class circuit_breaker(object):
         '''Open the circuit breaker and set time for half open'''
         self._state = OPEN
         open_time = time.time()
-        self._half_open_time = open_time + self.retry_time
+        self._half_open_time = open_time + self._retry_time
         logger.warning("Circuit breaker opened")
 
     def _close(self):
@@ -173,3 +173,14 @@ class circuit_breaker(object):
             return self._call(func, *args, **kwargs)
 
         return wrapped_func
+
+    def __repr__(self):
+        with self._lock:
+            return ("Circuit Breaker - state: {state} fails: {fails} allowed fails: "
+                    " {allowed} retry time: {retry_time}".format(
+                        state=self._state,
+                        fails=self._failure_count,
+                        allowed=self._allowed_fails,
+                        retry_time=self._retry_time
+                    )
+            )
