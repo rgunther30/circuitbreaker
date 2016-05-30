@@ -31,4 +31,24 @@ def validator(response):
 def request_something()
     # do something ...
     return response
+```
 
+In some applications, we may know what type of exceptions can be thrown during the execution of our function.
+If the exceptions are expected, and not a cause of alarm, we can pass a list of allowed exceptions as a kwarg
+to the initializer of the circuit breaker. These will not increment the failure counter and thus have no
+effect on the state of the breaker. They are logged however, so they are not completely ignored. An example of
+allowed exceptions:
+```python
+@circuit_breaker(allowed_fails=3, retry_timer=60, allowed_exceptions=[KeyError, ConnectTimeout])
+def request_something():
+    # do something...
+```
+
+In some cases, we might be fine with many exceptions, but only have a few failures we care about. In this case
+we can pass a list of explicit failures to the initializer. In this case, only these exceptions will be 
+considered failures. All other exceptions caught by the circuit breaker will be logged, however.
+```python
+@circuit_breaker(failure_exceptions=[KeyError, RequestException])
+def request_something():
+    # do something...
+```
