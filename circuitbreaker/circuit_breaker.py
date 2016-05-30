@@ -157,14 +157,15 @@ class circuit_breaker(object):
             except self._failure_exceptions:
                 logger.exception("Caught pre-defined failure exception")
                 self._on_failure()
-            except Exception:
+            except Exception as e:
                 logger.exception("Caught unhandled exception, incrementing failure count")
                 if self._failure_exceptions:
+                    logger.info("Encountered non-failure exception {}".format(e.__class__))
                     return  # not a failure, but not a success
                 else:
-                    logger.debug("Successfully completed wrapped function")
                     self._on_failure()
             else:
+                logger.debug("Successfully completed wrapped function")
                 self._parse_result(result)
 
     def __call__(self, func):
